@@ -6,9 +6,12 @@ elements to run their container on any / all of the selected nodes that have a
 `dockerPluginType` defined. It is also expected that the node have a `port`
 defined as well.
 
-Mesos is currently the only one that is supported.
-
 ![workflow-step](screenshot/workflow-step.png)
+
+# Shortcomings
+- Only `dockerPluginType` of `mesos` currently works.
+- "Environment Vars" doesn't work yet.
+- "Pull image?" check box doesn't work yet.
 
 # Usage
 To get this working you will need:
