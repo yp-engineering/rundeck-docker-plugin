@@ -12,7 +12,7 @@ mesos-host:
   ...
 ```
 
-Screenshot of plugin
+# Screenshot of plugin UI
 
 ![workflow-step](screenshot/workflow-step.png)
 
