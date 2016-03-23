@@ -4,7 +4,13 @@ have an attribute of `dockerPluginType` defined which is a String of either
 `mesos`, `swarm`, or `docker`. Users may then configure this plugin's form
 elements to run their container on any / all of the selected nodes that have a
 `dockerPluginType` defined. It is also expected that the node have a `port`
-defined as well.
+defined as well like:
+```yaml
+mesos-host:
+  port: 5050
+  dockerPluginType: mesos
+  ...
+```
 
 ![workflow-step](screenshot/workflow-step.png)
 
