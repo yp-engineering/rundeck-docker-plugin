@@ -1,0 +1,74 @@
+name: docker
+version: 1.0
+rundeckPluginVersion: 1.1
+author: Adam Avilla
+date: 03/02/16
+providers:
+  - name: docker
+    service: WorkflowNodeStep
+    title: 'docker'
+    description: Execute a docker container on a node with dockerPluginType defined.
+    plugin-type: script
+    script-interpreter: /bin/bash
+    script-file: rundeck-docker-plugin
+    config:
+      - type: String
+        name: docker_image
+        title: Image
+        description: 'The docker image to run.'
+        required: true
+      - type: String
+        name: docker_command
+        title: Command
+        description: 'What command should the container run.'
+      - type: String
+        name: docker_cpus
+        title: CPUs
+        description: 'How many cpus your container needs.'
+        required: true
+        default: 1
+      - type: String
+        name: docker_memory
+        title: Memory
+        description: 'How much memory your container needs.'
+        required: true
+        default: 10
+      - type: String
+        name: docker_env_vars
+        title: Environment Vars
+        description: 'String of space seperated KEY=VALUEs E.g. "ONE=1 TWO=2"'
+      - type: Boolean
+        name: docker_pull_image
+        title: Pull image?
+        description: 'Check if you would like to pull the image before running it.'
+      - type: String
+        name: docker_mesos_principal
+        title: Principal
+        description: 'Principal for authentication to mesos.'
+        renderingOptions:
+          groupName: Mesos
+          grouping: secondary
+      - type: String
+        name: docker_mesos_secret
+        title: Secret
+        description: 'Secret for authentication to mesos.'
+        renderingOptions:
+          groupName: Mesos
+          grouping: secondary
+          displayType: PASSWORD
+      - type: String
+        name: docker_mesos_user
+        title: User
+        description: 'User to run tasks on mesos as.'
+        default: root
+        renderingOptions:
+          groupName: Mesos
+          grouping: secondary
+      - type: String
+        name: docker_swarm_tls_zip
+        title: TLS Zip File
+        description: 'ZIP file for TLS authentication to swarm.'
+        renderingOptions:
+          groupName: Swarm
+          grouping: secondary
+          selectionAccessor: STORAGE_PATH

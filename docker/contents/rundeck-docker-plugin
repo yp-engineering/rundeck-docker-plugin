@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+# If the user runs the job with rundeck debug on, debug this script as well.
+if [ -n "$RD_JOB_LOGLEVEL" ] && [ $RD_JOB_LOGLEVEL == "DEBUG" ]; then
+  set -x
+  env | grep ^RD_ | sort
+  MESOS_RUNONCE_DEBUG_OPTS="-logtostderr=true -v=2"
+fi
+
+set -e -o pipefail
+
+
+allowable_types=("mesos" "swarm")
+
+contains_element () {
+  local e
+  for e in "${@:2}"; do [[ "$e" == "$1" ]] && echo 0 && break; done
+  echo 1
+}
+
+# Handle basics and short circuit if don't have them
+if [ -z "$RD_NODE_DOCKERPLUGINTYPE" ]; then
+  echo Nothing to do. Please select one node with dockerPluginType defined.
+  exit 1
+fi
+
+if [ -z "$RD_NODE_PORT" ]; then
+  echo Nothing to do. Please select one node with port defined.
+  exit 1
+fi
+
+if [ -z "$RD_NODE_HOSTNAME" ]; then
+  echo Nothing to do. Please select one node with hostname defined.
+  exit 1
+fi
+
+if [ "$(contains_element "$RD_NODE_DOCKERPLUGINTYPE" "${allowable_types[@]}")" == 1 ]; then
+  echo Please select one node with a valid dockerPluginType. Allowable types: ${allowable_types[@]}
+  exit 1
+fi
+
+
+if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
+  address=$(ip route get 8.8.8.8 | grep -o src.* | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+")
+
+  finish () {
+    [ $tmpdir ] && rm -rf $tmpdir
+  }
+  trap finish EXIT ERR SIGINT SIGQUIT
+
+
+  # Build extra args for mesos-runonce
+  # TODO not sure how to make this better looking
+  if [ -z "$RD_CONFIG_DOCKER_IMAGE" ]; then
+    echo Must have docker image specified.
+    exit 1
+  else
+    args="-docker-image=$RD_CONFIG_DOCKER_IMAGE"
+  fi
+  if [ $RD_CONFIG_DOCKER_COMMAND ]; then
+    args="$args -docker-cmd=$RD_CONFIG_DOCKER_COMMAND"
+  fi
+  if [ $RD_CONFIG_DOCKER_CPUS ]; then
+    args="$args -cpus=$RD_CONFIG_DOCKER_CPUS"
+  fi
+  if [ $RD_CONFIG_DOCKER_MEMORY ]; then
+    args="$args -mem=$RD_CONFIG_DOCKER_MEMORY"
+  fi
+  if [ $RD_CONFIG_DOCKER_MESOS_SECRET ] || [ $RD_CONFIG_DOCKER_MESOS_PRINCIPAL ]; then
+    if [ -z "$RD_CONFIG_DOCKER_MESOS_SECRET" ] || [ -z "$RD_CONFIG_DOCKER_MESOS_PRINCIPAL" ]; then
+      echo Must have mesos secret AND principal defined.
+      exit 1
+    fi
+    tmpdir=$(mktemp -d)
+    secret=$tmpdir/secret
+    echo -n $RD_CONFIG_DOCKER_MESOS_SECRET > $secret
+    args="$args -secret-file=$secret -principal=$RD_CONFIG_DOCKER_MESOS_PRINCIPAL"
+  fi
+  if [ $RD_CONFIG_DOCKER_MESOS_USER ]; then
+    args="$args -user=$RD_CONFIG_DOCKER_MESOS_USER"
+  fi
+  # TODO - handle pull image and env vars
+  # end build extra args
+
+
+  mesos-runonce -master=$RD_NODE_HOSTNAME:$RD_NODE_PORT \
+    -address=$address \
+    $MESOS_RUNONCE_DEBUG_OPTS \
+    $args
+fi
+
+if [ "$RD_NODE_DOCKERPLUGINTYPE" == "swarm" ]; then
+  echo Not yet implemented :\)
+fi
