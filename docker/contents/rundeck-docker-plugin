@@ -57,8 +57,8 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
   else
     args="-docker-image=$RD_CONFIG_DOCKER_IMAGE"
   fi
-  if [ $RD_CONFIG_DOCKER_COMMAND ]; then
-    args="$args -docker-cmd=$RD_CONFIG_DOCKER_COMMAND"
+  if [ -n "$RD_CONFIG_DOCKER_COMMAND" ]; then
+    args="$args -docker-cmd='"$RD_CONFIG_DOCKER_COMMAND"'"
   fi
   if [ $RD_CONFIG_DOCKER_CPUS ]; then
     args="$args -cpus=$RD_CONFIG_DOCKER_CPUS"
