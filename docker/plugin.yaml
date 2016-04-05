@@ -45,30 +45,24 @@ providers:
         name: docker_mesos_principal
         title: Principal
         description: 'Principal for authentication to mesos.'
-        renderingOptions:
-          groupName: Mesos
-          grouping: secondary
+        scope: Project
       - type: String
         name: docker_mesos_secret
         title: Secret
         description: 'Secret for authentication to mesos.'
         renderingOptions:
-          groupName: Mesos
-          grouping: secondary
           displayType: PASSWORD
+        scope: Project
       - type: String
         name: docker_mesos_user
         title: User
         description: 'User to run tasks on mesos as.'
         default: root
-        renderingOptions:
-          groupName: Mesos
-          grouping: secondary
+        scope: Project
       - type: String
         name: docker_swarm_tls_zip
         title: TLS Zip File
         description: 'ZIP file for TLS authentication to swarm.'
         renderingOptions:
-          groupName: Swarm
-          grouping: secondary
           selectionAccessor: STORAGE_PATH
+        scope: Project
