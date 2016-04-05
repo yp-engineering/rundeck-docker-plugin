@@ -25,8 +25,8 @@ mesos-host:
 To get this working you will need:
 
 - A rundeck server
-- [mesos-runonce](https://github.com/yp-engineering/mesos-runonce) available in
-  the rundeck server's $PATH
+- [mesos-runonce](https://github.com/yp-engineering/mesos-runonce) v1.0.0
+  available in the rundeck server's $PATH
 - This plugin's .zip file either from the
   [releases](https://github.com/yp-engineering/rundeck-docker-plugin/releases)
   (Coming soon), or by cloning and running `make`.
