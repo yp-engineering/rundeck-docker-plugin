@@ -79,8 +79,9 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
   if [ $RD_CONFIG_DOCKER_PULL_IMAGE ]; then
     args="$args -force-pull=$RD_CONFIG_DOCKER_PULL_IMAGE"
   fi
-  if [ -n "$RD_CONFIG_DOCKER_PULL_IMAGE" ]; then
-    args="$args -env-vars=$RD_CONFIG_DOCKER_ENV_VARS"
+  if [ -n "$RD_CONFIG_DOCKER_ENV_VARS" ]; then
+    envvars=$(echo $RD_CONFIG_DOCKER_ENV_VARS | sed -r "s/\w+/\"&\"/g" | sed "s/=/:/g" | sed "s/\s/,/g")
+    args=''"$args -env-vars="'{"env":{'$envvars'}}'
   fi
   # end build extra args
 
