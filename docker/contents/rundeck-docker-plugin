@@ -49,15 +49,11 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
     hostnames="$hostnames $RD_NODE_HOSTNAME"
     set +e
     for host in $hostnames; do
-      $(nslookup $host 2>&1 >/dev/null && nc -w1 $host $RD_NODE_PORT < /dev/null)
-      local status=$?
+      host=$(curl -Ls $host:$RD_NODE_PORT/redirect -o /dev/null -w %{url_effective} | sed -r "s/:.*|http:|\///gi")
+      status=$?
       if [ $status -eq 0 ]; then
-        host=$(curl -Ls $host:$RD_NODE_PORT/redirect -o /dev/null -w %{url_effective} | sed -r "s/:.*|http:|\///gi")
-        status=$?
-        if [ $status -eq 0 ]; then
-          set -e
-          echo -n $host && return
-        fi
+        set -e
+        echo -n $host && return
       fi
     done
     set -e
