@@ -63,6 +63,12 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
     set -e
   }
 
+  master=$(find_leader)
+  if [ -z "$master" ]; then
+    echo "No routable hostname or hostnames in node definition."
+    exit 1
+  fi
+
   # Build extra args for mesos-runonce
   # TODO not sure how to make this better looking
   if [ -z "$RD_CONFIG_DOCKER_IMAGE" ]; then
@@ -98,12 +104,6 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
     args=''"$args -env-vars="'{"env":{'$envvars'}}'
   fi
   # end build extra args
-
-  master=$(find_leader)
-  if [ -z "$master" ]; then
-    echo "No routable hostname or hostnames in node definition."
-    exit 1
-  fi
 
   mesos-runonce -master=$master:$RD_NODE_PORT \
     -address=$address \
