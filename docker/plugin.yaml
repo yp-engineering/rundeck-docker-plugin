@@ -36,7 +36,7 @@ providers:
       - type: String
         name: docker_env_vars
         title: Environment Vars
-        description: 'String of JSON env vars E.g. {"env":{"FOO":"bar"}}'
+        description: 'String of space separated bash env variables. E.g. FOO=bar BANG=bazz'
       - type: Boolean
         name: docker_pull_image
         title: Pull image?
