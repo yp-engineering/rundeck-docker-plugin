@@ -29,11 +29,6 @@ if [ -z "$RD_NODE_PORT" ]; then
   exit 1
 fi
 
-if [ -z "$RD_NODE_HOSTNAME" ]; then
-  echo Nothing to do. Please select one node with hostname defined.
-  exit 1
-fi
-
 if [ "$(contains_element "$RD_NODE_DOCKERPLUGINTYPE" "${allowable_types[@]}")" == 1 ]; then
   echo Please select one node with a valid dockerPluginType. Allowable types: ${allowable_types[@]}
   exit 1
@@ -48,6 +43,25 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
   }
   trap finish EXIT ERR SIGINT SIGQUIT
 
+  find_leader () {
+    local hostnames
+    hostnames=$(echo $RD_NODE_HOSTNAMES | sed -r "s/\[|\]|,//g")
+    hostnames="$hostnames $RD_NODE_HOSTNAME"
+    set +e
+    for host in $hostnames; do
+      $(nslookup $host 2>&1 >/dev/null && nc -w1 $host $RD_NODE_PORT < /dev/null)
+      local status=$?
+      if [ $status -eq 0 ]; then
+        host=$(curl -Ls $host:$RD_NODE_PORT/redirect -o /dev/null -w %{url_effective} | sed -r "s/:.*|http:|\///gi")
+        status=$?
+        if [ $status -eq 0 ]; then
+          set -e
+          echo -n $host && return
+        fi
+      fi
+    done
+    set -e
+  }
 
   # Build extra args for mesos-runonce
   # TODO not sure how to make this better looking
@@ -85,8 +99,13 @@ if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
   fi
   # end build extra args
 
+  master=$(find_leader)
+  if [ -z "$master" ]; then
+    echo "No routable hostname or hostnames in node definition."
+    exit 1
+  fi
 
-  mesos-runonce -master=$RD_NODE_HOSTNAME:$RD_NODE_PORT \
+  mesos-runonce -master=$master:$RD_NODE_PORT \
     -address=$address \
     $MESOS_RUNONCE_DEBUG_OPTS \
     ${RD_CONFIG_DOCKER_COMMAND:+-docker-cmd=''"$RD_CONFIG_DOCKER_COMMAND"''} \
