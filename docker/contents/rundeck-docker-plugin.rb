@@ -97,7 +97,8 @@ class RundeckDockerPlugin
     return unless env_vars
 
     env_to_json = env_vars.split("\n").inject({}){|env, var|
-                    k,v = *var.split('=')
+                    # split only on first '='
+                    k,v = *var.split(%r{(^\w*)=}).reject(&:empty?)
                     # strip begin and end quotes
                     env[k] = v.gsub /["']$|^["']/, ''
                     env

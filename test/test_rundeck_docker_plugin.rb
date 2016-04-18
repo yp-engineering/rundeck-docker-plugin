@@ -194,6 +194,26 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
     envvars "cow=boy\nbig=\"money 'head' face\"\ncrazy='thing a'\n"
     assert_equal "-env-vars='{\"env\":{\"cow\":\"boy\",\"big\":\"money 'head' face\",\"crazy\":\"thing a\"}}'", new_rdp.envvars
+
+    envvars 'hi=mom=hi,dad=face'
+    cmd = new_rdp.cmd
+    assert_match /-env-vars='{"env":{"hi":"mom=hi,dad=face"}}'/, cmd
+
+    envvars 'under_score=value'
+    cmd = new_rdp.cmd
+    assert_match /-env-vars='{"env":{"under_score":"value"}}'/, cmd
+
+    envvars 'UPPER_CASE=value'
+    cmd = new_rdp.cmd
+    assert_match /-env-vars='{"env":{"UPPER_CASE":"value"}}'/, cmd
+
+    envvars '123=value'
+    cmd = new_rdp.cmd
+    assert_match /-env-vars='{"env":{"123":"value"}}'/, cmd
+
+    envvars '_wieRD_=value'
+    cmd = new_rdp.cmd
+    assert_match /-env-vars='{"env":{"_wieRD_":"value"}}'/, cmd
   end
 
   def test_mesos_creds
