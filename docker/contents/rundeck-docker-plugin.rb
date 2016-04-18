@@ -5,6 +5,16 @@ require 'net/http'
 
 class RundeckDockerPluginError < StandardError; end
 
+class RundeckDockerPluginNoLeader < RundeckDockerPluginError
+  def initialize hosts
+    @hosts = hosts
+  end
+
+  def message
+    "Cannot find leader in hostnames: #{@hosts}"
+  end
+end
+
 class RundeckDockerPluginMissingPluginType < RundeckDockerPluginError
   def message
     'Nothing to do. Please select one node with dockerPluginType defined.'
@@ -12,9 +22,13 @@ class RundeckDockerPluginMissingPluginType < RundeckDockerPluginError
 end
 
 class RundeckDockerPluginInvalidPluginType < RundeckDockerPluginError
-  def message types
+  def initialize types
+    @types = types
+  end
+
+  def message
     "Please select one node with a valid dockerPluginType. " \
-    "Allowable types: #{types}"
+    "Allowable types: #{@types}"
   end
 end
 
@@ -144,7 +158,8 @@ class RundeckDockerPlugin
   end
 
   def mesos_leader
-    leader = hostnames.map do |host|
+    hosts = hostnames
+    leader = hosts.map do |host|
                # In case they input scheme
                hst = host.gsub '^http(s)?://', ''
                uri = URI("http://#{hst}:#{@node_port}/redirect")
@@ -160,7 +175,9 @@ class RundeckDockerPlugin
                end
              end.first
 
-    "-master=#{leader}" if leader
+    raise RundeckDockerPluginNoLeader, hosts unless leader
+
+    "-master=#{leader}"
   end
 
   def mesos_runonce

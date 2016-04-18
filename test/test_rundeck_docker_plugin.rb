@@ -21,13 +21,19 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     @tmpfile.unlink
   end
 
-  def test_it
+  def test_mesos_cmd
     setup_sanity
+    assert_raises RundeckDockerPluginNoLeader do
+      new_rdp.cmd
+    end
+
+    hostname 'ypec-prod1-mesos3.wc1.yellowpages.com'
     cmd = new_rdp.cmd
     assert_match /mesos-runonce/, cmd
     assert_match /-address=#{IP_REGEX}/, cmd
     assert_match /-docker-image=foo/, cmd
     assert_match /-force-pull=false/, cmd
+    assert_match /-master=server.com:5050/, cmd
 
     force_pull 'true'
     cmd = new_rdp.cmd
@@ -38,10 +44,6 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     cmd = new_rdp.cmd
     assert_match /-principal=me/, cmd
     assert_match %r[-secret-file=/tmp/TestRundeckDockerPlugin], cmd
-
-    hostname 'ypec-prod1-mesos3.wc1.yellowpages.com'
-    cmd = new_rdp.cmd
-    assert_match /-master=server.com:5050/, cmd
 
     log_level 'DEBUG'
     cmd = new_rdp.cmd
@@ -187,6 +189,7 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def test_envvars
     setup_sanity
+    hostname 'ypec-prod1-mesos3.wc1.yellowpages.com'
     refute new_rdp.envvars
 
     envvars 'cow=boy'
