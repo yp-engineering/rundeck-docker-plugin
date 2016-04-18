@@ -25,6 +25,7 @@ mesos-host:
 To get this working you will need:
 
 - A rundeck server
+- Ruby version >= 2.0.x installed
 - [mesos-runonce](https://github.com/yp-engineering/mesos-runonce) v1.0.0
   available in the rundeck server's $PATH
 - This plugin's .zip file either from the

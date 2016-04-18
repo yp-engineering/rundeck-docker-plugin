@@ -9,7 +9,6 @@ providers:
     title: 'docker'
     description: Execute a docker container on a node with dockerPluginType defined.
     plugin-type: script
-    script-interpreter: /bin/bash
     script-file: rundeck-docker-plugin
     config:
       - type: String
@@ -37,6 +36,8 @@ providers:
         name: docker_env_vars
         title: Environment Vars
         description: 'String of space separated bash env variables. E.g. FOO=bar BANG=bazz'
+        renderingOptions:
+          displayType: MULTI_LINE
       - type: Boolean
         name: docker_pull_image
         title: Pull image?

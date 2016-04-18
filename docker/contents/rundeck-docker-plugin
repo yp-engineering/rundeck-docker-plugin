@@ -1,113 +1,23 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ruby
 
-# If the user runs the job with rundeck debug on, debug this script as well.
-if [ -n "$RD_JOB_LOGLEVEL" ] && [ $RD_JOB_LOGLEVEL == "DEBUG" ]; then
-  set -x
-  env | grep ^RD_ | sort
-  MESOS_RUNONCE_DEBUG_OPTS="-logtostderr=true -v=2"
-fi
+require 'tempfile'
+# require rundeck-docker-plugin.rb because this file is named the same.
+require File.expand_path(__FILE__)
 
-set -e -o pipefail
+begin
+  tmpfile = Tempfile.new 'RundeckDockerPlugin'
+  cmd = RundeckDockerPlugin.new(tmpfile).cmd
 
+  if ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
+    STDERR.puts ENV.select{|k,_| k =~ /^RD_/}
+    STDERR.puts "Running command: #{cmd}"
+  end
 
-allowable_types=("mesos" "swarm")
-
-contains_element () {
-  local e
-  for e in "${@:2}"; do [[ "$e" == "$1" ]] && echo 0 && break; done
-  echo 1
-}
-
-# Handle basics and short circuit if don't have them
-if [ -z "$RD_NODE_DOCKERPLUGINTYPE" ]; then
-  echo Nothing to do. Please select one node with dockerPluginType defined.
-  exit 1
-fi
-
-if [ -z "$RD_NODE_PORT" ]; then
-  echo Nothing to do. Please select one node with port defined.
-  exit 1
-fi
-
-if [ "$(contains_element "$RD_NODE_DOCKERPLUGINTYPE" "${allowable_types[@]}")" == 1 ]; then
-  echo Please select one node with a valid dockerPluginType. Allowable types: ${allowable_types[@]}
-  exit 1
-fi
-
-
-if [ "$RD_NODE_DOCKERPLUGINTYPE" == "mesos" ]; then
-  address=$(ip route get 8.8.8.8 | grep -o src.* | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+")
-
-  finish () {
-    [ $tmpdir ] && rm -rf $tmpdir
-  }
-  trap finish EXIT ERR SIGINT SIGQUIT
-
-  find_leader () {
-    local hostnames
-    hostnames=$(echo $RD_NODE_HOSTNAMES | sed -r "s/\[|\]|,//g")
-    hostnames="$hostnames $RD_NODE_HOSTNAME"
-    set +e
-    for host in $hostnames; do
-      host=$(curl -Ls $host:$RD_NODE_PORT/redirect -o /dev/null -w %{url_effective} | sed -r "s/:.*|http:|\///gi")
-      status=$?
-      if [ $status -eq 0 ]; then
-        set -e
-        echo -n $host && return
-      fi
-    done
-    set -e
-  }
-
-  master=$(find_leader)
-  if [ -z "$master" ]; then
-    echo "No routable hostname or hostnames in node definition."
-    exit 1
-  fi
-
-  # Build extra args for mesos-runonce
-  # TODO not sure how to make this better looking
-  if [ -z "$RD_CONFIG_DOCKER_IMAGE" ]; then
-    echo Must have docker image specified.
-    exit 1
-  else
-    args="-docker-image=$RD_CONFIG_DOCKER_IMAGE"
-  fi
-  if [ $RD_CONFIG_DOCKER_CPUS ]; then
-    args="$args -cpus=$RD_CONFIG_DOCKER_CPUS"
-  fi
-  if [ $RD_CONFIG_DOCKER_MEMORY ]; then
-    args="$args -mem=$RD_CONFIG_DOCKER_MEMORY"
-  fi
-  if [ $RD_CONFIG_DOCKER_MESOS_SECRET ] || [ $RD_CONFIG_DOCKER_MESOS_PRINCIPAL ]; then
-    if [ -z "$RD_CONFIG_DOCKER_MESOS_SECRET" ] || [ -z "$RD_CONFIG_DOCKER_MESOS_PRINCIPAL" ]; then
-      echo Must have mesos secret AND principal defined.
-      exit 1
-    fi
-    tmpdir=$(mktemp -d)
-    secret=$tmpdir/secret
-    echo -n $RD_CONFIG_DOCKER_MESOS_SECRET > $secret
-    args="$args -secret-file=$secret -principal=$RD_CONFIG_DOCKER_MESOS_PRINCIPAL"
-  fi
-  if [ $RD_CONFIG_DOCKER_MESOS_USER ]; then
-    args="$args -user=$RD_CONFIG_DOCKER_MESOS_USER"
-  fi
-  if [ $RD_CONFIG_DOCKER_PULL_IMAGE ]; then
-    args="$args -force-pull=$RD_CONFIG_DOCKER_PULL_IMAGE"
-  fi
-  if [ -n "$RD_CONFIG_DOCKER_ENV_VARS" ]; then
-    envvars=$(echo $RD_CONFIG_DOCKER_ENV_VARS | sed -r "s/\w+/\"&\"/g" | sed "s/=/:/g" | sed "s/\s/,/g")
-    args=''"$args -env-vars="'{"env":{'$envvars'}}'
-  fi
-  # end build extra args
-
-  mesos-runonce -master=$master:$RD_NODE_PORT \
-    -address=$address \
-    $MESOS_RUNONCE_DEBUG_OPTS \
-    ${RD_CONFIG_DOCKER_COMMAND:+-docker-cmd=''"$RD_CONFIG_DOCKER_COMMAND"''} \
-    $args
-fi
-
-if [ "$RD_NODE_DOCKERPLUGINTYPE" == "swarm" ]; then
-  echo Not yet implemented :\)
-fi
+  raise "Command: #{cmd} failed." unless system cmd
+rescue => err
+  STDERR.puts "#{err.class}: #{err.message}"
+  exit $? ? $?.exitstatus : 1
+ensure
+  tmpfile.close
+  tmpfile.unlink
+end
