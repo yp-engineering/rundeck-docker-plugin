@@ -170,7 +170,7 @@ class RundeckDockerPlugin
                  resp = http.get uri.request_uri
                  location = URI(resp['location'])
                  "#{location.host}:#{location.port}"
-               rescue Net::ReadTimeout, Net::OpenTimeout
+               rescue Net::ReadTimeout, Net::OpenTimeout, SocketError
                  next
                end
              end.first
