@@ -159,21 +159,23 @@ class RundeckDockerPlugin
 
   def mesos_leader
     hosts = hostnames
-    leader = hosts.map do |host|
-               # In case they input scheme
-               hst = host.gsub '^http(s)?://', ''
-               uri = URI("http://#{hst}:#{@node_port}/redirect")
-               http = Net::HTTP.new uri.host, uri.port
-               http.read_timeout = 1
-               http.open_timeout = 1
-               begin
-                 resp = http.get uri.request_uri
-                 location = URI(resp['location'])
-                 "#{location.host}:#{location.port}"
-               rescue Net::ReadTimeout, Net::OpenTimeout, SocketError
-                 next
-               end
-             end.first
+    leader = nil
+    hosts.each do |host|
+      # In case they input scheme
+      hst = host.gsub '^http(s)?://', ''
+      uri = URI("http://#{hst}:#{@node_port}/redirect")
+      http = Net::HTTP.new uri.host, uri.port
+      http.read_timeout = 1
+      http.open_timeout = 1
+      begin
+        resp = http.get uri.request_uri
+        location = URI(resp['location'])
+        leader = "#{location.host}:#{location.port}"
+        break
+      rescue Net::ReadTimeout, Net::OpenTimeout, SocketError
+        next
+      end
+    end
 
     raise RundeckDockerPluginNoLeader, hosts unless leader
 
