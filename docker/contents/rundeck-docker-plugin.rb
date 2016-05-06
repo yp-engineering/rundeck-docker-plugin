@@ -224,7 +224,7 @@ class RundeckDockerPlugin
   end
 
   def task_id
-    "-task-id='rd:#{ENV['RD_JOB_EXECID'] || 'unknown-exec-id'}'"
+    "-task-id='rd-#{ENV['RD_JOB_EXECID'] || 'unknown-exec-id'}'"
   end
 
   def task_name

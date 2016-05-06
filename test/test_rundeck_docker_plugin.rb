@@ -35,7 +35,7 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     assert_match /-force-pull=false/, cmd
     assert_match /-master=server.com:5050/, cmd
     assert_match /-task-name='Rundeck:unknown-project:unknown-name:unknown-job-id'/, cmd
-    assert_match /-task-id='rd:unknown-exec-id'/, cmd
+    assert_match /-task-id='rd-unknown-exec-id'/, cmd
 
     task_name 'proj', 'name', '1'
     cmd = new_rdp.cmd
@@ -43,7 +43,7 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
     task_id 'yep'
     cmd = new_rdp.cmd
-    assert_match /-task-id='rd:yep'/, cmd
+    assert_match /-task-id='rd-yep'/, cmd
 
     force_pull 'true'
     cmd = new_rdp.cmd
