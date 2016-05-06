@@ -195,7 +195,9 @@ class RundeckDockerPlugin
       mesos_creds,
       mesos_user,
       pull_image,
-      envvars
+      envvars,
+      task_id,
+      task_name
     ].compact.join ' '
   end
 
@@ -219,6 +221,21 @@ class RundeckDockerPlugin
 
   def swarm
     warn 'Not implemented'
+  end
+
+  def task_id
+    "-task-id='rd:#{ENV['RD_JOB_EXECID'] || 'unknown-exec-id'}'"
+  end
+
+  def task_name
+    name = [
+      'Rundeck',
+      ENV['RD_JOB_PROJECT'] || 'unknown-project',
+      ENV['RD_JOB_NAME'] || 'unknown-name',
+      ENV['RD_JOB_ID'] || 'unknown-job-id'
+    ].join ':'
+
+    "-task-name='#{name}'"
   end
 
 end

@@ -34,6 +34,16 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     assert_match /-docker-image=foo/, cmd
     assert_match /-force-pull=false/, cmd
     assert_match /-master=server.com:5050/, cmd
+    assert_match /-task-name='Rundeck:unknown-project:unknown-name:unknown-job-id'/, cmd
+    assert_match /-task-id='rd:unknown-exec-id'/, cmd
+
+    task_name 'proj', 'name', '1'
+    cmd = new_rdp.cmd
+    assert_match /-task-name='Rundeck:proj:name:1'/, cmd
+
+    task_id 'yep'
+    cmd = new_rdp.cmd
+    assert_match /-task-id='rd:yep'/, cmd
 
     force_pull 'true'
     cmd = new_rdp.cmd
@@ -302,6 +312,16 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def hostname val
     ENV['RD_NODE_HOSTNAME'] = val
+  end
+
+  def task_name proj, name, id
+    ENV['RD_JOB_PROJECT'] = proj
+    ENV['RD_JOB_NAME'] = name
+    ENV['RD_JOB_ID'] = id
+  end
+
+  def task_id val
+    ENV['RD_JOB_EXECID'] = val
   end
 
   def new_rdp
