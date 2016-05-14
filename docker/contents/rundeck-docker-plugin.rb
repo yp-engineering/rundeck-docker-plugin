@@ -228,10 +228,16 @@ class RundeckDockerPlugin
   end
 
   def task_name
+    job_name = ENV['RD_JOB_NAME'] || 'unknown-name'
+    full_job_name = if group = ENV['RD_JOB_GROUP']
+                      group + '/' + job_name
+                    else
+                      job_name
+                    end
     name = [
       'Rundeck',
       ENV['RD_JOB_PROJECT'] || 'unknown-project',
-      ENV['RD_JOB_NAME'] || 'unknown-name',
+      full_job_name,
       ENV['RD_JOB_ID'] || 'unknown-job-id'
     ].join ':'
 

@@ -41,6 +41,14 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     cmd = new_rdp.cmd
     assert_match /-task-name='Rundeck:proj:name:1'/, cmd
 
+    task_name 'proj', 'name', '1', 'group'
+    cmd = new_rdp.cmd
+    assert_match %r{-task-name='Rundeck:proj:group/name:1'}, cmd
+
+    task_name 'proj', 'name', '1', 'nested/group'
+    cmd = new_rdp.cmd
+    assert_match %r{-task-name='Rundeck:proj:nested/group/name:1'}, cmd
+
     task_id 'yep'
     cmd = new_rdp.cmd
     assert_match /-task-id='rd-yep'/, cmd
@@ -314,8 +322,9 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     ENV['RD_NODE_HOSTNAME'] = val
   end
 
-  def task_name proj, name, id
+  def task_name proj, name, id, group=nil
     ENV['RD_JOB_PROJECT'] = proj
+    ENV['RD_JOB_GROUP'] = group
     ENV['RD_JOB_NAME'] = name
     ENV['RD_JOB_ID'] = id
   end
