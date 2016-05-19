@@ -18,8 +18,6 @@ mesos-host:
 
 # Shortcomings
 - Only `dockerPluginType` of `mesos` currently works.
-- "Environment Vars" doesn't work yet.
-- "Pull image?" check box doesn't work yet.
 
 # Usage
 To get this working you will need:
