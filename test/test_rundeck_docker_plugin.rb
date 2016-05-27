@@ -111,7 +111,7 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     docker_image 'foo'
     assert new_rdp
 
-    plugin_type 'swarm'
+    plugin_type 'docker'
     assert new_rdp
   end
 

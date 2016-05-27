@@ -2,6 +2,8 @@ require 'json'
 require 'socket'
 require 'uri'
 require 'net/http'
+require 'docker'
+require 'pp'
 
 class RundeckDockerPluginError < StandardError; end
 
@@ -50,9 +52,108 @@ class RundeckDockerPluginInvalidMesosCredConfig < RundeckDockerPluginError
   end
 end
 
+# Responsible for interface to docker
+class RundeckDocker
+  def initialize
+    @node_port = ENV['RD_NODE_PORT']
+    @image = ENV['RD_CONFIG_DOCKER_IMAGE']
+    @command = ENV['RD_CONFIG_DOCKER_COMMAND'].split
+    @protocol = ENV['RD_NODE_PROTOCOL']
+  end
+
+  def force_pull?
+    ENV['RD_CONFIG_DOCKER_PULL_IMAGE'] == 'true'
+  end
+
+  def pull_image
+    if force_pull? || !Docker::Image.exist?(@image)
+      puts "Pulling image #{@image}"
+      Docker::Image.create 'fromImage' => @image
+    end
+  end
+
+  def debug?
+    ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
+  end
+
+  def run
+    exit_code = 0
+    set_host
+    pull_image
+
+    container = Docker::Container.create 'Image' => @image, 'Cmd' => @command
+
+    container.start
+    json = container.json
+
+    puts "Container '#{@image}' started with command: #{@command} "\
+         "on host: #{json['Node']['Name']} with name: #{json['Name']}."
+
+    if debug?
+      puts "JSON from Container:"
+      pp json
+    end
+
+    mechanism = json['State']['Running'] ? :attach : :stream_logs
+
+    attach_opts = {
+      stderr: true,
+      stdout: true,
+      logs: true,
+    }
+
+    container.send(mechanism, attach_opts) do |stream, chunk|
+      # stream == :stdout || :stderr so objectify it and .puts to proper
+      # output
+      Object.const_get(stream.to_s.upcase).puts chunk
+    end
+  rescue Docker::Error::DockerError => err
+    exit_code = 3
+    STDERR.puts "Error from docker: #{err.class} - #{err}"
+  ensure
+    if json
+      exit_code = json['State']['ExitCode']
+      if err_msg = json['State']['Error'] and !err_msg.empty?
+        STDERR.puts "Container '#{@image}' failed with exit code #{exit_code}. " \
+                    "Message: #{err_msg}"
+      end
+    end
+    exit exit_code
+  end
+
+  def hostnames
+    hosts = if hsts = ENV['RD_NODE_HOSTNAMES']
+              hsts.gsub(/[\[\]\s]/, '').split ','
+            else
+              []
+            end
+    hosts << ENV['RD_NODE_HOSTNAME']
+    hosts.compact.reject(&:empty?)
+  end
+
+  def set_host
+    hostnames.each do |hst|
+      begin
+        hst = "#{@protocol}://#{hst}:#{@node_port}"
+        Timeout.timeout 2 do
+          Docker.url = hst
+          if Docker.ping =~ /ok/i
+            puts "Connected to docker at: #{hst}"
+            return
+          end
+        end
+      rescue Timeout::Error
+        # TODO may want to raise something
+        next
+      end
+    end
+  end
+
+end # RundeckDocker
+
 class RundeckDockerPlugin
 
-  ALLOWABLE_TYPES = %w[mesos swarm]
+  ALLOWABLE_TYPES = %w[mesos docker]
 
   def initialize tmpfile
     @docker_plugin_type = ENV['RD_NODE_DOCKERPLUGINTYPE']
@@ -80,8 +181,8 @@ class RundeckDockerPlugin
     case @docker_plugin_type
     when 'mesos'
       mesos_runonce
-    when 'swarm'
-      swarm
+    when 'docker'
+      RundeckDocker.new.run
     end
   end
 
@@ -217,10 +318,6 @@ class RundeckDockerPlugin
     ALLOWABLE_TYPES.include? @docker_plugin_type or
       raise RundeckDockerPluginInvalidPluginType, ALLOWABLE_TYPES
     @image or raise RundeckDockerPluginMissingDockerImage
-  end
-
-  def swarm
-    warn 'Not implemented'
   end
 
   def task_id
