@@ -59,6 +59,7 @@ class RundeckDocker
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
     @command = ENV['RD_CONFIG_DOCKER_COMMAND'].split
     @protocol = ENV['RD_NODE_PROTOCOL']
+    @envvars = envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n")
   end
 
   def force_pull?
@@ -77,11 +78,18 @@ class RundeckDocker
   end
 
   def run
-    exit_code = 0
+    exit_code = nil
+
     set_host
     pull_image
 
-    container = Docker::Container.create 'Image' => @image, 'Cmd' => @command
+    create_hash = {
+      'Image' => @image,
+      'Cmd' => @command,
+    }
+    @envvars and create_hash['Env'] = @envvars
+
+    container = Docker::Container.create create_hash
 
     container.start
     json = container.json
@@ -94,7 +102,7 @@ class RundeckDocker
       pp json
     end
 
-    mechanism = json['State']['Running'] ? :attach : :stream_logs
+    mechanism = json['State']['Running'] ? :attach : :streaming_logs
 
     attach_opts = {
       stderr: true,
@@ -110,11 +118,14 @@ class RundeckDocker
   rescue Docker::Error::DockerError => err
     exit_code = 3
     STDERR.puts "Error from docker: #{err.class} - #{err}"
+  rescue => err
+    exit_code = 4
+    STDERR.puts "Unhandled error: #{err.class} - #{err}"
   ensure
-    if json
+    if json && !exit_code
       exit_code = json['State']['ExitCode']
       if err_msg = json['State']['Error'] and !err_msg.empty?
-        STDERR.puts "Container '#{@image}' failed with exit code #{exit_code}. " \
+        STDERR.puts "Container '#{@image}' failed with exit code #{exit_code}. "\
                     "Message: #{err_msg}"
       end
     end
