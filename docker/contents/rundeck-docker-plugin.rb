@@ -57,7 +57,7 @@ class RundeckDocker
   def initialize
     @node_port = ENV['RD_NODE_PORT']
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
-    @command = ENV['RD_CONFIG_DOCKER_COMMAND'].split
+    @command = cmd = ENV['RD_CONFIG_DOCKER_COMMAND'] and cmd.split
     @protocol = ENV['RD_NODE_PROTOCOL']
     @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n"))
   end
