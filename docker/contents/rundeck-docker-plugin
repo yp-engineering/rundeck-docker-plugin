@@ -5,6 +5,7 @@ require 'tempfile'
 require File.expand_path(__FILE__)
 
 debug = ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
+STDERR.sync = STDOUT.sync = true
 
 begin
   tmpfile = Tempfile.new 'RundeckDockerPlugin'
