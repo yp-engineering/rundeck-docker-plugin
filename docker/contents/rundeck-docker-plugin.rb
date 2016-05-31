@@ -59,7 +59,7 @@ class RundeckDocker
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
     @command = ENV['RD_CONFIG_DOCKER_COMMAND'].split
     @protocol = ENV['RD_NODE_PROTOCOL']
-    @envvars = envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n")
+    @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n"))
   end
 
   def force_pull?
