@@ -55,11 +55,18 @@ end
 # Responsible for interface to docker
 class RundeckDocker
   def initialize
-    @node_port = ENV['RD_NODE_PORT']
+    @node_port = ENV['RD_NODE_PORT'] ? ":#{ENV['RD_NODE_PORT']}" : nil
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
-    @command = cmd = ENV['RD_CONFIG_DOCKER_COMMAND'] and cmd.split
+    @command = ENV['RD_CONFIG_DOCKER_COMMAND']
     @protocol = ENV['RD_NODE_PROTOCOL']
     @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n"))
+  end
+
+  def creds
+    ret = {}
+    ret['username'] = ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] if ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME']
+    ret['password'] = ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD'] if ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD']
+    ret
   end
 
   def force_pull?
@@ -69,7 +76,7 @@ class RundeckDocker
   def pull_image
     if force_pull? || !Docker::Image.exist?(@image)
       puts "Pulling image #{@image}"
-      Docker::Image.create 'fromImage' => @image
+      Docker::Image.create({'fromImage' => @image}, creds)
     end
   end
 
@@ -85,17 +92,19 @@ class RundeckDocker
 
     create_hash = {
       'Image' => @image,
-      'Cmd' => @command,
     }
     @envvars and create_hash['Env'] = @envvars
+    @command and create_hash['Cmd'] = @command.split
 
     container = Docker::Container.create create_hash
 
     container.start
     json = container.json
 
-    puts "Container '#{@image}' started with command: #{@command} "\
-         "on host: #{json['Node']['Name']} with name: #{json['Name']}."
+    info = "Container '#{@image}' started with command: #{@command} "
+    info = info + "on host: #{json['Node']['Name']} " if json['Node']
+    info = info + "with name: #{json['Name']}."
+    puts info
 
     if debug?
       puts "JSON from Container:"
@@ -145,7 +154,7 @@ class RundeckDocker
   def set_host
     hostnames.each do |hst|
       begin
-        hst = "#{@protocol}://#{hst}:#{@node_port}"
+        hst = "#{@protocol}://#{hst}#{@node_port}"
         Timeout.timeout 2 do
           Docker.url = hst
           if Docker.ping =~ /ok/i
@@ -171,7 +180,7 @@ class RundeckDockerPlugin
     @node_port = ENV['RD_NODE_PORT']
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
     @tmpfile = tmpfile
-    sanity_check
+    sanity_check if @docker_plugin_type == 'mesos'
   end
 
   def address

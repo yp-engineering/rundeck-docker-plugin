@@ -58,3 +58,13 @@ providers:
         description: 'User to run tasks on mesos as.'
         default: root
         scope: Project
+      - type: String
+        name: docker_registry_username
+        title: Username
+        description: 'Username for authentication to docker registry.'
+        scope: Project
+      - type: String
+        name: docker_registry_password
+        title: Password
+        description: 'Password for authentication to docker registry.'
+        scope: Project
