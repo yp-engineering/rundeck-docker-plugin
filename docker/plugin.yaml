@@ -35,7 +35,7 @@ providers:
       - type: String
         name: docker_env_vars
         title: Environment Vars
-        description: 'String of space separated bash env variables. E.g. FOO=bar BANG=bazz'
+        description: 'String of newline separated bash env variables. E.g. FOO=bar\nBANG=bazz'
         renderingOptions:
           displayType: MULTI_LINE
       - type: Boolean
