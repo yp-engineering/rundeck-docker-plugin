@@ -177,10 +177,10 @@ class RundeckDockerPlugin
 
   def initialize tmpfile
     @docker_plugin_type = ENV['RD_NODE_DOCKERPLUGINTYPE']
-    @node_port = ENV['RD_NODE_PORT']
+    @node_port = ENV['RD_NODE_PORT'] ? ":#{ENV['RD_NODE_PORT']}" : nil
     @image = ENV['RD_CONFIG_DOCKER_IMAGE']
     @tmpfile = tmpfile
-    sanity_check if @docker_plugin_type == 'mesos'
+    sanity_check
   end
 
   def address
@@ -284,7 +284,7 @@ class RundeckDockerPlugin
     hosts.each do |host|
       # In case they input scheme
       hst = host.gsub '^http(s)?://', ''
-      uri = URI("http://#{hst}:#{@node_port}/redirect")
+      uri = URI("http://#{hst}#{@node_port}/redirect")
       http = Net::HTTP.new uri.host, uri.port
       http.read_timeout = 1
       http.open_timeout = 1
@@ -333,7 +333,6 @@ class RundeckDockerPlugin
   end
 
   def sanity_check
-    @node_port or raise RundeckDockerPluginMissingNodePort
     @docker_plugin_type or raise RundeckDockerPluginMissingPluginType
     ALLOWABLE_TYPES.include? @docker_plugin_type or
       raise RundeckDockerPluginInvalidPluginType, ALLOWABLE_TYPES

@@ -89,11 +89,6 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
   end
 
   def test_sanity_check
-    assert_raises RundeckDockerPluginMissingNodePort do
-      new_rdp
-    end
-
-    port '5050'
     assert_raises RundeckDockerPluginMissingPluginType do
       new_rdp
     end
@@ -151,7 +146,6 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def test_docker_image
     plugin_type 'mesos'
-    port '5050'
     assert_raises RundeckDockerPluginMissingDockerImage do
       new_rdp.docker_image
     end
@@ -294,7 +288,6 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def setup_sanity
     plugin_type 'mesos'
-    port '5050'
     docker_image 'foo'
   end
 
@@ -308,10 +301,6 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def plugin_type val
     ENV['RD_NODE_DOCKERPLUGINTYPE'] = val
-  end
-
-  def port val
-    ENV['RD_NODE_PORT'] = val
   end
 
   def hostnames vals
