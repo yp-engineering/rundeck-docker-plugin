@@ -7,6 +7,9 @@ require 'pp'
 
 old_constants = Object.constants
 
+# Implement this class if you want to retrieve secrets, docs to follow...
+class RundeckDockerSecretsPlugin; end
+
 $:.unshift './'
 Dir.glob('plugins/*rb').each do |plugin|
   require plugin
@@ -156,7 +159,7 @@ class RundeckDocker
     exit_code = 4
     STDERR.puts "Unhandled error: #{err.class} - #{err}"
   ensure
-    if secret_plugin
+    if secret_plugin.respond_to? :remove
       puts 'Removing secrets plugin data...'
       secret_plugin.remove
       puts 'Done removing secrets plugin data.'
