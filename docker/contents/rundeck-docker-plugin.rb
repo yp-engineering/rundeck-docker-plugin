@@ -5,6 +5,15 @@ require 'net/http'
 require 'docker'
 require 'pp'
 
+old_constants = Object.constants
+
+$:.unshift './'
+Dir.glob('plugins/*rb').each do |plugin|
+  require plugin
+end
+
+PLUGINS = Object.constants - old_constants
+
 class RundeckDockerPluginError < StandardError; end
 
 class RundeckDockerPluginNoLeader < RundeckDockerPluginError
@@ -52,6 +61,7 @@ class RundeckDockerPluginInvalidMesosCredConfig < RundeckDockerPluginError
   end
 end
 
+
 # Responsible for interface to docker
 class RundeckDocker
   def initialize
@@ -84,7 +94,15 @@ class RundeckDocker
     ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
   end
 
+  def before_run
+    PLUGINS.each do |plugin|
+      klass = Object.const_get plugin
+      klass.before_run if klass.respond_to? :before_run
+    end
+  end
+
   def run
+    before_run
     exit_code = nil
 
     set_host
@@ -95,6 +113,13 @@ class RundeckDocker
     }
     @envvars and create_hash['Env'] = @envvars
     @command and create_hash['Cmd'] = @command.split
+    secret_plugin = nil
+    if secret_klass = Object.const_get(:RundeckDockerSecretsPlugin)
+      secret_plugin = secret_klass.new
+      if secret_plugin.respond_to? :secrets_config
+        create_hash.merge! secret_plugin.secrets_config
+      end
+    end
 
     container = Docker::Container.create create_hash
 
@@ -131,6 +156,18 @@ class RundeckDocker
     exit_code = 4
     STDERR.puts "Unhandled error: #{err.class} - #{err}"
   ensure
+    if secret_plugin
+      puts 'Removing secrets plugin data...'
+      secret_plugin.remove
+      puts 'Done removing secrets plugin data.'
+    end
+
+    if container
+      puts 'Removing container...'
+      container.remove
+      puts 'Done removing container.'
+    end
+
     if json && !exit_code
       exit_code = json['State']['ExitCode']
       if err_msg = json['State']['Error'] and !err_msg.empty?
