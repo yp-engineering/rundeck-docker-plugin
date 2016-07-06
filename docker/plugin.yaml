@@ -68,3 +68,18 @@ providers:
         title: Password
         description: 'Password for authentication to docker registry.'
         scope: Project
+      - type: String
+        name: docker_secret_store_username
+        title: Secret Store Username
+        description: 'Username for authentication to secret store mechanism.'
+        scope: Project
+      - type: String
+        name: docker_secret_store_password
+        title: Secret Store Password
+        description: 'Password for authentication to secret store mechanism.'
+        scope: Project
+      - type: String
+        name: docker_secret_store_token
+        title: Secret Store Username
+        description: 'Token for authentication to secret store mechanism.'
+        scope: Project
