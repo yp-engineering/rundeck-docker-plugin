@@ -7,11 +7,8 @@ require 'pp'
 
 old_constants = Object.constants
 
-# Implement this class if you want to retrieve secrets, docs to follow...
-class RundeckDockerSecretsPlugin; end
-
 $:.unshift './'
-Dir.glob('plugins/*rb').each do |plugin|
+Dir.glob(File.dirname(File.expand_path(__FILE__)) + '/plugins/*rb').each do |plugin|
   require plugin
 end
 
@@ -117,8 +114,8 @@ class RundeckDocker
     @envvars and create_hash['Env'] = @envvars
     @command and create_hash['Cmd'] = @command.split
     secret_plugin = nil
-    if secret_klass = Object.const_get(:RundeckDockerSecretsPlugin)
-      secret_plugin = secret_klass.new
+    if secret_klass = Object.constants.find{|const| const === :RundeckDockerSecretsPlugin}
+      secret_plugin = Object.const_get(secret_klass).new
       if secret_plugin.respond_to? :secrets_config
         create_hash.merge! secret_plugin.secrets_config
       end
