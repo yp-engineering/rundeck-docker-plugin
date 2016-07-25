@@ -131,11 +131,6 @@ class RundeckDocker
     info = info + "with name: #{json['Name']}."
     puts info
 
-    if debug?
-      puts "JSON from Container:"
-      pp json
-    end
-
     mechanism = json['State']['Running'] ? :attach : :streaming_logs
 
     attach_opts = {
@@ -166,6 +161,11 @@ class RundeckDocker
       puts 'Removing container...'
       container.remove
       puts 'Done removing container.'
+    end
+
+    if debug?
+      puts "JSON from Container:"
+      pp json
     end
 
     if json && !exit_code
