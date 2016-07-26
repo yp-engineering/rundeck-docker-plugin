@@ -103,7 +103,7 @@ class RundeckDocker
 
   def run
     before_run
-    exit_code = nil
+    exit_code = 0
 
     set_host
     pull_image
@@ -144,12 +144,9 @@ class RundeckDocker
       # output
       Object.const_get(stream.to_s.upcase).puts chunk
     end
-  rescue Docker::Error::DockerError => err
-    exit_code = 3
-    STDERR.puts "Error from docker: #{err.class} - #{err}"
   rescue => err
-    exit_code = 4
-    STDERR.puts "Unhandled error: #{err.class} - #{err}"
+    exit_code = 3
+    STDERR.puts "#{err.class} - #{err.message}"
   ensure
     if secret_plugin.respond_to? :remove
       puts 'Removing secrets plugin data...'
@@ -158,23 +155,26 @@ class RundeckDocker
     end
 
     if container
+      json = container.refresh!.json
       puts 'Removing container...'
       container.remove
       puts 'Done removing container.'
     end
 
-    if debug?
-      puts "JSON from Container:"
-      pp json
-    end
-
-    if json && !exit_code
+    # We have json from the container and there wasn't an error already
+    if json && exit_code == 0
       exit_code = json['State']['ExitCode']
       if err_msg = json['State']['Error'] and !err_msg.empty?
         STDERR.puts "Container '#{@image}' failed with exit code #{exit_code}. "\
                     "Message: #{err_msg}"
       end
     end
+
+    if debug? && json
+      puts "JSON from Container:"
+      pp json
+    end
+
     exit exit_code
   end
 
