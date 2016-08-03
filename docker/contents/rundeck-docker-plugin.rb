@@ -131,15 +131,14 @@ class RundeckDocker
     info = info + "with name: #{json['Name']}."
     puts info
 
-    mechanism = json['State']['Running'] ? :attach : :streaming_logs
-
     attach_opts = {
       stderr: true,
       stdout: true,
       logs: true,
+      follow: true,
     }
 
-    container.send(mechanism, attach_opts) do |stream, chunk|
+    container.streaming_logs(attach_opts) do |stream, chunk|
       # stream == :stdout || :stderr so objectify it and .puts to proper
       # output
       Object.const_get(stream.to_s.upcase).puts chunk
