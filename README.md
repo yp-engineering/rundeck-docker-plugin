@@ -1,7 +1,7 @@
 # rundeck-docker-plugin
 Rundeck interface for running docker containers against nodes. Nodes need to
 have an attribute of `dockerPluginType` defined which is a String of either
-`mesos`, `swarm`, or `docker`. Users may then configure this plugin's form
+`mesos`, or `docker`. Users may then configure this plugin's form
 elements to run their container on any / all of the selected nodes that have a
 `dockerPluginType` defined. It is also expected that the node have a `port`
 defined as well like:
@@ -10,14 +10,19 @@ mesos-host:
   port: 5050
   dockerPluginType: mesos
   ...
+docker-host:
+  port: 2375
+  dockerPluginType: docker
+  ...
+swarm-host:
+  port: 4000
+  dockerPluginType: docker
+  ...
 ```
 
 # Screenshot of plugin UI
 
 ![workflow-step](screenshot/workflow-step.png)
-
-# Shortcomings
-- Only `dockerPluginType` of `mesos` currently works.
 
 # Usage
 To get this working you will need:
