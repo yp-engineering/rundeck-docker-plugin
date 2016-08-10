@@ -37,3 +37,29 @@ To get this working you will need:
   (Coming soon), or by cloning and running `make`.
 - Installing this plugin's .zip file into the rundeck server's plugin path
   (usually $RDECK_BASE/libext).
+
+# Rundeck project level settings
+
+To configure your credentials for talking to a mesos that has authentication
+turned on set the following:
+
+```java
+project.plugin.WorkflowNodeStep.docker.docker_mesos_principal=principal
+project.plugin.WorkflowNodeStep.docker.docker_mesos_secret=secret
+```
+
+To configure your credentials for pulling private images set the following:
+
+```java
+project.plugin.WorkflowNodeStep.docker.docker_registry_password=password
+project.plugin.WorkflowNodeStep.docker.docker_registry_username=username
+```
+
+TODO: This secrets integration is...a bit secret in that it is not well
+documented / thought out yet. Examples are needed for this some day.
+To configure a secret(s) store that has authentication set the following:
+
+```java
+project.plugin.WorkflowNodeStep.docker.docker_secret_store_password=password
+project.plugin.WorkflowNodeStep.docker.docker_secret_store_username=username
+```
