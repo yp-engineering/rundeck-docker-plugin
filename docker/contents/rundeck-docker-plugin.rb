@@ -1,3 +1,4 @@
+require 'tempfile'
 require 'json'
 require 'socket'
 require 'uri'
@@ -5,6 +6,10 @@ require 'net/http'
 require 'docker'
 require 'pp'
 
+##################################################################
+# TODO
+# This is way too magical. Need a better way for plugin interface.
+##################################################################
 old_constants = Object.constants
 
 $:.unshift './'
@@ -13,10 +18,12 @@ Dir.glob(File.dirname(File.expand_path(__FILE__)) + '/plugins/*rb').each do |plu
 end
 
 PLUGINS = Object.constants - old_constants
+##################################################################
 
+# Error Classes
 class RundeckDockerPluginError < StandardError; end
 
-class RundeckDockerPluginNoLeader < RundeckDockerPluginError
+class RundeckDockerMesosPluginNoLeader < RundeckDockerPluginError
   def initialize hosts
     @hosts = hosts
   end
@@ -43,64 +50,84 @@ class RundeckDockerPluginInvalidPluginType < RundeckDockerPluginError
   end
 end
 
-class RundeckDockerPluginMissingNodePort < RundeckDockerPluginError
-  def message
-    'Nothing to do. Please select one node with port defined.'
-  end
-end
-
 class RundeckDockerPluginMissingDockerImage < RundeckDockerPluginError
   def message
     'Must have docker image specified.'
   end
 end
 
-class RundeckDockerPluginInvalidMesosCredConfig < RundeckDockerPluginError
+class RundeckDockerMesosPluginInvalidMesosCredConfig < RundeckDockerPluginError
   def message
     'Must have mesos secret AND principal defined.'
   end
 end
 
+class RundeckDockerPluginMissingProtocol < RundeckDockerPluginError
+  def message
+    'Please define a protocol to use E.g. tcp, unix'
+  end
+end
 
-# Responsible for interface to docker
-class RundeckDocker
-  def initialize
-    @node_port = ENV['RD_NODE_PORT'] ? ":#{ENV['RD_NODE_PORT']}" : nil
-    @image = ENV['RD_CONFIG_DOCKER_IMAGE']
-    @command = ENV['RD_CONFIG_DOCKER_COMMAND']
-    @protocol = ENV['RD_NODE_PROTOCOL']
-    @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and envvars.split("\n"))
+
+# Main interface to execute containers against a given host with a valid
+# ALLOWABLE_TYPES
+class RundeckDockerPlugin
+
+  ALLOWABLE_TYPES = %w[mesos docker]
+
+  def self.run
+    plugin_type = ENV['RD_NODE_DOCKERPLUGINTYPE']
+
+    if 'mesos' == plugin_type
+      RundeckDockerMesos.new.run
+    elsif 'docker' == plugin_type
+      RundeckDocker.new.run
+    elsif !ALLOWABLE_TYPES.include?(plugin_type)
+      raise RundeckDockerPluginInvalidPluginType
+    else
+      raise RundeckDockerPluginMissingPluginType
+    end
   end
 
-  def creds
-    ret = {}
-    ret['username'] = ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] if ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME']
-    ret['password'] = ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD'] if ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD']
-    ret
+  def initialize
+    @node_port = ENV['RD_NODE_PORT'] ? ":#{ENV['RD_NODE_PORT']}" : nil
+    @image = ENV['RD_CONFIG_DOCKER_IMAGE'] or
+      raise RundeckDockerPluginMissingDockerImage
+    @command = ENV['RD_CONFIG_DOCKER_COMMAND']
+    @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and
+                envvars.split("\n"))
+    @hostnames = hostnames
   end
 
   def force_pull?
     ENV['RD_CONFIG_DOCKER_PULL_IMAGE'] == 'true'
   end
 
-  def pull_image
-    if force_pull? || !Docker::Image.exist?(@image)
-      puts "Pulling image #{@image}"
-      Docker::Image.create({'fromImage' => @image}, creds)
-    end
-  end
-
   def debug?
     ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
   end
 
-  def before_run
-    PLUGINS.each do |plugin|
-      klass = Object.const_get plugin
-      klass.before_run if klass.respond_to? :before_run
-    end
+  def hostnames
+    hosts = if hsts = ENV['RD_NODE_HOSTNAMES']
+              hsts.gsub(/[\[\]\s]/, '').split ','
+            else
+              []
+            end
+    hosts << ENV['RD_NODE_HOSTNAME']
+    hosts.compact.reject(&:empty?)
   end
 
+end
+
+
+# Responsible for interface to docker
+class RundeckDocker < RundeckDockerPlugin
+  def initialize
+    super
+    @protocol = ENV['RD_NODE_PROTOCOL'] #or raise RundeckDockerPluginMissingProtocol
+  end
+
+  # TODO clean up. Too long and complex. Use extract method refactor.
   def run
     before_run
     exit_code = 0
@@ -114,7 +141,11 @@ class RundeckDocker
     @envvars and create_hash['Env'] = @envvars
     @command and create_hash['Cmd'] = @command.split
     secret_plugin = nil
-    if secret_klass = Object.constants.find{|const| const === :RundeckDockerSecretsPlugin}
+    secret_klass = Object.constants.find do |const|
+      const === :RundeckDockerSecretsPlugin
+    end
+
+    if secret_klass
       secret_plugin = Object.const_get(secret_klass).new
       if secret_plugin.respond_to? :secrets_config
         create_hash.merge! secret_plugin.secrets_config
@@ -177,28 +208,39 @@ class RundeckDocker
     exit exit_code
   end
 
-  def hostnames
-    hosts = if hsts = ENV['RD_NODE_HOSTNAMES']
-              hsts.gsub(/[\[\]\s]/, '').split ','
-            else
-              []
-            end
-    hosts << ENV['RD_NODE_HOSTNAME']
-    hosts.compact.reject(&:empty?)
+  private
+
+  def creds
+    ret = {}
+    ret['username'] = ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] if
+      ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME']
+    ret['password'] = ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD'] if
+      ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD']
+    ret
   end
 
+  def pull_image
+    if force_pull? || !Docker::Image.exist?(@image)
+      puts "Pulling image #{@image}"
+      Docker::Image.create({'fromImage' => @image}, creds)
+    end
+  end
+
+  def before_run
+    PLUGINS.each do |plugin|
+      klass = Object.const_get plugin
+      klass.before_run if klass.respond_to? :before_run
+    end
+  end
   def set_host
-    hostnames.each do |hst|
+    @hostnames.shuffle.find do |hst|
       begin
         hst = "#{@protocol}://#{hst}#{@node_port}"
         Timeout.timeout 2 do
           Docker.url = hst
-          if Docker.ping =~ /ok/i
-            puts "Connected to docker at: #{hst}"
-            return
-          end
+          Docker.ping =~ /ok/i
         end
-      rescue Timeout::Error
+      rescue Timeout::Error, Excon::Error::Socket
         # TODO may want to raise something
         next
       end
@@ -207,22 +249,37 @@ class RundeckDocker
 
 end # RundeckDocker
 
-class RundeckDockerPlugin
 
-  ALLOWABLE_TYPES = %w[mesos docker]
+class RundeckDockerMesos < RundeckDockerPlugin
 
-  def initialize tmpfile
-    @docker_plugin_type = ENV['RD_NODE_DOCKERPLUGINTYPE']
-    @node_port = ENV['RD_NODE_PORT'] ? ":#{ENV['RD_NODE_PORT']}" : nil
-    @image = ENV['RD_CONFIG_DOCKER_IMAGE']
-    @tmpfile = tmpfile
-    sanity_check
+  def initialize
+    super
+    @tmpfile = Tempfile.new 'RundeckDockerPlugin'
   end
+
+  def run
+    mesos_cmd = mesos_runonce_cmd
+    if debug?
+      STDERR.puts ENV.select{|k,_| k =~ /^RD_/}
+      STDERR.puts "Running command: #{mesos_cmd}"
+    end
+
+    raise "Command: #{mesos_cmd} failed." unless system mesos_cmd
+  rescue => err
+    STDERR.puts "#{err.class}: #{err.message}"
+    STDERR.puts err.backtrace if debug
+    exit $? ? $?.exitstatus : 1
+  ensure
+    @tmpfile.close if @tmpfile.respond_to? :close
+    @tmpfile.unlink if @tmpfile.respond_to? :unlink
+  end
+
+  private
 
   def address
     orig = Socket.do_not_reverse_lookup
     # turn off reverse DNS resolution temporarily
-    Socket.do_not_reverse_lookup =true
+    Socket.do_not_reverse_lookup = true
     addr = UDPSocket.open do |sock|
       # google, should be safe
       sock.connect '64.233.187.99', 1
@@ -233,19 +290,9 @@ class RundeckDockerPlugin
     Socket.do_not_reverse_lookup = orig
   end
 
-  def cmd
-    case @docker_plugin_type
-    when 'mesos'
-      mesos_runonce
-    when 'docker'
-      RundeckDocker.new.run
-    end
-  end
-
   def command
-    command = ENV['RD_CONFIG_DOCKER_COMMAND']
-    return unless command
-    "-docker-cmd='#{command}'"
+    return unless @command
+    "-docker-cmd='#{@command}'"
   end
 
   def cpus
@@ -255,7 +302,7 @@ class RundeckDockerPlugin
   end
 
   def debug
-    '-logtostderr=true -v=2' if ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
+    '-logtostderr=true -v=2' if debug?
   end
 
   def docker_image
@@ -264,10 +311,9 @@ class RundeckDockerPlugin
 
   # User passed in ENV vars from rundeck plugin UI.
   def envvars
-    env_vars = ENV['RD_CONFIG_DOCKER_ENV_VARS']
-    return unless env_vars
+    return unless @envvars
 
-    env_to_json = env_vars.split("\n").inject({}){|env, var|
+    env_to_json = @envvars.inject({}){|env, var|
                     # split only on first '='
                     k,v = *var.split(%r{(^\w*)=}).reject(&:empty?)
                     # strip begin and end quotes
@@ -276,20 +322,6 @@ class RundeckDockerPlugin
                   }.to_json
 
     "-env-vars='{\"env\":#{env_to_json}}'"
-  end
-
-  def force_pull?
-    ENV['RD_CONFIG_DOCKER_PULL_IMAGE'] == 'true'
-  end
-
-  def hostnames
-    hosts = if hsts = ENV['RD_NODE_HOSTNAMES']
-              hsts.gsub(/[\[\]\s]/, '').split ','
-            else
-              []
-            end
-    hosts << ENV['RD_NODE_HOSTNAME']
-    hosts.compact.reject(&:empty?)
   end
 
   def mem
@@ -303,7 +335,7 @@ class RundeckDockerPlugin
     secret = ENV['RD_CONFIG_DOCKER_MESOS_SECRET']
 
     if principal && !secret or !principal && secret
-      raise RundeckDockerPluginInvalidMesosCredConfig
+      raise RundeckDockerMesosPluginInvalidMesosCredConfig
     end
 
     return unless principal && secret
@@ -315,7 +347,7 @@ class RundeckDockerPlugin
   end
 
   def mesos_leader
-    hosts = hostnames
+    hosts = @hostnames
     leader = nil
     hosts.each do |host|
       # In case they input scheme
@@ -334,12 +366,12 @@ class RundeckDockerPlugin
       end
     end
 
-    raise RundeckDockerPluginNoLeader, hosts unless leader
+    raise RundeckDockerMesosPluginNoLeader, hosts unless leader
 
     "-master=#{leader}"
   end
 
-  def mesos_runonce
+  def mesos_runonce_cmd
     [
       'mesos-runonce',
       mesos_leader,
@@ -368,13 +400,6 @@ class RundeckDockerPlugin
     "-force-pull=#{force_pull?}"
   end
 
-  def sanity_check
-    @docker_plugin_type or raise RundeckDockerPluginMissingPluginType
-    ALLOWABLE_TYPES.include? @docker_plugin_type or
-      raise RundeckDockerPluginInvalidPluginType, ALLOWABLE_TYPES
-    @image or raise RundeckDockerPluginMissingDockerImage
-  end
-
   def task_id
     "-task-id='rd-#{ENV['RD_JOB_EXECID'] || 'unknown-exec-id'}'"
   end
@@ -396,5 +421,5 @@ class RundeckDockerPlugin
     "-task-name='#{name}'"
   end
 
-end
+end # RundeckDockerMesos
 

@@ -1,27 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'tempfile'
 # require rundeck-docker-plugin.rb because this file is named the same.
 require File.expand_path(__FILE__)
 
-debug = ENV['RD_JOB_LOGLEVEL'] == 'DEBUG'
 STDERR.sync = STDOUT.sync = true
 
-begin
-  tmpfile = Tempfile.new 'RundeckDockerPlugin'
-  cmd = RundeckDockerPlugin.new(tmpfile).cmd
-
-  if debug
-    STDERR.puts ENV.select{|k,_| k =~ /^RD_/}
-    STDERR.puts "Running command: #{cmd}"
-  end
-
-  raise "Command: #{cmd} failed." unless system cmd
-rescue => err
-  STDERR.puts "#{err.class}: #{err.message}"
-  STDERR.puts err.backtrace if debug
-  exit $? ? $?.exitstatus : 1
-ensure
-  tmpfile.close
-  tmpfile.unlink
-end
+RundeckDockerPlugin.run
