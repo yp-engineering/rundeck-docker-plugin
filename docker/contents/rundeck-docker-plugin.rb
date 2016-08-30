@@ -158,7 +158,8 @@ class RundeckDocker < RundeckDockerPlugin
     json = container.json
 
     info = "Container '#{@image}' started with command: #{@command} "
-    info = info + "on host: #{json['Node']['Name']} " if json['Node']
+    node = json['Node'] ? json['Node']['Name'] : Docker.url
+    info = info + "on host: #{node} "
     info = info + "with name: #{json['Name']}."
     puts info
 
