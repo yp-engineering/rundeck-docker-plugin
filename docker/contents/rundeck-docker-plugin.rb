@@ -82,10 +82,10 @@ class RundeckDockerPlugin
       RundeckDockerMesos.new.run
     elsif 'docker' == plugin_type
       RundeckDocker.new.run
-    elsif !ALLOWABLE_TYPES.include?(plugin_type)
-      raise RundeckDockerPluginInvalidPluginType
-    else
+    elsif '' == plugin_type || plugin_type.nil?
       raise RundeckDockerPluginMissingPluginType
+    elsif !ALLOWABLE_TYPES.include?(plugin_type)
+      raise RundeckDockerPluginInvalidPluginType, ALLOWABLE_TYPES
     end
   end
 
@@ -208,8 +208,6 @@ class RundeckDocker < RundeckDockerPlugin
     exit exit_code
   end
 
-  private
-
   def creds
     ret = {}
     ret['username'] = ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] if
@@ -273,8 +271,6 @@ class RundeckDockerMesos < RundeckDockerPlugin
     @tmpfile.close if @tmpfile.respond_to? :close
     @tmpfile.unlink if @tmpfile.respond_to? :unlink
   end
-
-  private
 
   def address
     orig = Socket.do_not_reverse_lookup

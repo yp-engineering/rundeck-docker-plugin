@@ -14,7 +14,7 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
   def setup
     ENV.clear
     @tmpfile = Tempfile.new self.class.to_s
-    @rdp = RundeckDockerPlugin
+    @rdmp = RundeckDockerMesos
   end
 
   def teardown
@@ -23,12 +23,9 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
 
   def test_mesos_cmd
     setup_sanity
-    assert_raises RundeckDockerPluginNoLeader do
-      new_rdp.cmd
-    end
 
     hostname 'ypec-prod1-mesos3.wc1.yellowpages.com'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /mesos-runonce/, cmd
     assert_match /-address=#{IP_REGEX}/, cmd
     assert_match /-docker-image=foo/, cmd
@@ -38,218 +35,218 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     assert_match /-task-id='rd-unknown-exec-id'/, cmd
 
     task_name 'proj', 'name', '1'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-task-name='Rundeck:proj:name:1'/, cmd
 
     task_name 'proj', 'name', '1', 'group'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match %r{-task-name='Rundeck:proj:group/name:1'}, cmd
 
     task_name 'proj', 'name', '1', 'nested/group'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match %r{-task-name='Rundeck:proj:nested/group/name:1'}, cmd
 
     task_id 'yep'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-task-id='rd-yep'/, cmd
 
     force_pull 'true'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-force-pull=true/, cmd
 
     principal 'me'
     secret 'secret'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-principal=me/, cmd
-    assert_match %r[-secret-file=/tmp/TestRundeckDockerPlugin], cmd
+    assert_match %r[-secret-file=/tmp/RundeckDockerPlugin], cmd
 
     log_level 'DEBUG'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-logtostderr=true -v=2/, cmd
 
     command 'cmd'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-docker-cmd='cmd'/, cmd
 
     cpus '3'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-cpus=3/, cmd
 
     mem '2'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-mem=2/, cmd
 
     mesos_user 'root'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-user=root/, cmd
 
     envvars 'hi=mom'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"hi":"mom"}}'/, cmd
   end
 
   def test_sanity_check
     assert_raises RundeckDockerPluginMissingPluginType do
-      new_rdp
+      RundeckDockerPlugin.run
     end
 
     plugin_type 'crappyclusternotsupported'
     assert_raises RundeckDockerPluginInvalidPluginType do
-      new_rdp
+      RundeckDockerPlugin.run
     end
 
     plugin_type 'mesos'
     assert_raises RundeckDockerPluginMissingDockerImage do
-      new_rdp
+      RundeckDockerPlugin.run
     end
 
     docker_image 'foo'
-    assert new_rdp
+    assert new_rdmp
 
     plugin_type 'docker'
-    assert new_rdp
+    assert new_rdmp
   end
 
   def test_debug
     setup_sanity
-    refute new_rdp.debug
+    refute new_rdmp.debug
     log_level 'DEBUG'
-    assert_equal '-logtostderr=true -v=2', new_rdp.debug
+    assert_equal '-logtostderr=true -v=2', new_rdmp.debug
   end
 
   def test_hostnames
     setup_sanity
 
-    assert_equal [], new_rdp.hostnames
+    assert_equal [], new_rdmp.hostnames
 
     hostname 'cow'
-    assert_equal ['cow'], new_rdp.hostnames
+    assert_equal ['cow'], new_rdmp.hostnames
 
     hostnames '[one,two]'
-    assert_equal %w[one two cow], new_rdp.hostnames
+    assert_equal %w[one two cow], new_rdmp.hostnames
 
     hostnames 'one,two'
-    assert_equal %w[one two cow], new_rdp.hostnames
+    assert_equal %w[one two cow], new_rdmp.hostnames
 
     hostnames '[one, two]'
-    assert_equal %w[one two cow], new_rdp.hostnames
+    assert_equal %w[one two cow], new_rdmp.hostnames
 
     hostnames 'one, two'
-    assert_equal %w[one two cow], new_rdp.hostnames
+    assert_equal %w[one two cow], new_rdmp.hostnames
 
     hostnames '[,two]'
-    assert_equal %w[two cow], new_rdp.hostnames
+    assert_equal %w[two cow], new_rdmp.hostnames
 
     hostnames '[one,]'
-    assert_equal %w[one cow], new_rdp.hostnames
+    assert_equal %w[one cow], new_rdmp.hostnames
   end
 
   def test_docker_image
     plugin_type 'mesos'
     assert_raises RundeckDockerPluginMissingDockerImage do
-      new_rdp.docker_image
+      new_rdmp.docker_image
     end
     docker_image 'foo'
-    assert_equal '-docker-image=foo', new_rdp.docker_image
+    assert_equal '-docker-image=foo', new_rdmp.docker_image
   end
 
   def test_cpus
     setup_sanity
-    refute new_rdp.cpus
+    refute new_rdmp.cpus
     cpus '1'
-    assert_equal '-cpus=1', new_rdp.cpus
+    assert_equal '-cpus=1', new_rdmp.cpus
   end
 
   def test_mem
     setup_sanity
-    refute new_rdp.mem
+    refute new_rdmp.mem
     mem '1'
-    assert_equal '-mem=1', new_rdp.mem
+    assert_equal '-mem=1', new_rdmp.mem
   end
 
   def test_command
     setup_sanity
-    refute new_rdp.command
+    refute new_rdmp.command
     command 'cmd ; cow'
-    assert_equal "-docker-cmd='cmd ; cow'", new_rdp.command
+    assert_equal "-docker-cmd='cmd ; cow'", new_rdmp.command
   end
 
   def test_user
     setup_sanity
-    refute new_rdp.mesos_user
+    refute new_rdmp.mesos_user
     mesos_user '1'
-    assert_equal '-user=1', new_rdp.mesos_user
+    assert_equal '-user=1', new_rdmp.mesos_user
   end
 
   def test_pull_image
     setup_sanity
 
-    rdp = new_rdp
-    refute rdp.force_pull?
-    assert_equal '-force-pull=false', rdp.pull_image
+    rdmp = new_rdmp
+    refute rdmp.force_pull?
+    assert_equal '-force-pull=false', rdmp.pull_image
 
     force_pull 'true'
-    rdp = new_rdp
-    assert rdp.force_pull?
-    assert_equal '-force-pull=true', rdp.pull_image
+    rdmp = new_rdmp
+    assert rdmp.force_pull?
+    assert_equal '-force-pull=true', rdmp.pull_image
   end
 
   def test_address
     setup_sanity
-    assert_match IP_REGEX, new_rdp.address
+    assert_match IP_REGEX, new_rdmp.address
   end
 
   def test_envvars
     setup_sanity
     hostname 'ypec-prod1-mesos3.wc1.yellowpages.com'
-    refute new_rdp.envvars
+    refute new_rdmp.envvars
 
     envvars 'cow=boy'
-    assert_equal "-env-vars='{\"env\":{\"cow\":\"boy\"}}'", new_rdp.envvars
+    assert_equal "-env-vars='{\"env\":{\"cow\":\"boy\"}}'", new_rdmp.envvars
 
     envvars "cow=boy\nbig=\"money 'head' face\"\ncrazy='thing a'\n"
-    assert_equal "-env-vars='{\"env\":{\"cow\":\"boy\",\"big\":\"money 'head' face\",\"crazy\":\"thing a\"}}'", new_rdp.envvars
+    assert_equal "-env-vars='{\"env\":{\"cow\":\"boy\",\"big\":\"money 'head' face\",\"crazy\":\"thing a\"}}'", new_rdmp.envvars
 
     envvars 'hi=mom=hi,dad=face'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"hi":"mom=hi,dad=face"}}'/, cmd
 
     envvars 'under_score=value'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"under_score":"value"}}'/, cmd
 
     envvars 'UPPER_CASE=value'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"UPPER_CASE":"value"}}'/, cmd
 
     envvars '123=value'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"123":"value"}}'/, cmd
 
     envvars '_wieRD_=value'
-    cmd = new_rdp.cmd
+    cmd = new_rdmp.mesos_runonce_cmd
     assert_match /-env-vars='{"env":{"_wieRD_":"value"}}'/, cmd
   end
 
   def test_mesos_creds
     setup_sanity
-    refute new_rdp.mesos_creds
+    refute new_rdmp.mesos_creds
 
     # no secret
     principal 'me'
-    assert_raises RundeckDockerPluginInvalidMesosCredConfig do
-      new_rdp.mesos_creds
+    assert_raises RundeckDockerMesosPluginInvalidMesosCredConfig do
+      new_rdmp.mesos_creds
     end
 
     # no principal
     principal nil
     secret 'secret'
-    assert_raises RundeckDockerPluginInvalidMesosCredConfig do
-      new_rdp.mesos_creds
+    assert_raises RundeckDockerMesosPluginInvalidMesosCredConfig do
+      new_rdmp.mesos_creds
     end
 
     principal 'me'
-    assert_match /-secret-file=.*-principal=me/, new_rdp.mesos_creds
+    assert_match /-secret-file=.*-principal=me/, new_rdmp.mesos_creds
   end
 
   private
@@ -322,8 +319,8 @@ class TestRundeckDockerPlugin < MiniTest::Unit::TestCase
     ENV['RD_JOB_EXECID'] = val
   end
 
-  def new_rdp
-    @rdp.new(@tmpfile)
+  def new_rdmp
+    @rdmp.new
   end
 
 end
