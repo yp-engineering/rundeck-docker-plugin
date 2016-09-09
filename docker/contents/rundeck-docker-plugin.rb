@@ -4,6 +4,7 @@ require 'socket'
 require 'uri'
 require 'net/http'
 require 'docker'
+require 'memfs'
 require 'pp'
 
 ##################################################################
@@ -97,6 +98,22 @@ class RundeckDockerPlugin
     @envvars = (envvars = ENV['RD_CONFIG_DOCKER_ENV_VARS'] and
                 envvars.split("\n"))
     @hostnames = hostnames
+    @config = config
+  end
+
+  def config
+    config = JSON.parse(ENV['RD_CONFIG_DOCKER_CONFIG_JSON'] || "{}")
+    return config if config.empty?
+
+    case config['version']
+    when '1.0.0'
+      node_data = (nodes = config['nodes'] and nodes[ENV['RD_NODE_NAME']]) || {}
+      global_data = config['global'] || {}
+
+      global_data.merge(node_data, &deep_merge_proc)
+    else
+      STDERR.puts "Unsupported config version: #{config['version']}"
+    end
   end
 
   def force_pull?
@@ -117,6 +134,13 @@ class RundeckDockerPlugin
     hosts.compact.reject(&:empty?)
   end
 
+  def deep_merge_proc
+    merger = proc { |key, v1, v2|
+      Hash === v1 && Hash === v2 ? v1.merge(v2, &merger) : v2
+    }
+    merger
+  end
+
 end
 
 
@@ -124,7 +148,14 @@ end
 class RundeckDocker < RundeckDockerPlugin
   def initialize
     super
-    @protocol = ENV['RD_NODE_PROTOCOL'] #or raise RundeckDockerPluginMissingProtocol
+    @protocol = ENV['RD_NODE_PROTOCOL'] or
+      raise RundeckDockerPluginMissingProtocol
+    @ca_pem = ENV['RD_CONFIG_DOCKER_CA_PEM_FILE'] ||
+      @config['docker']['ca.pem'] rescue nil
+    @cert_pem = ENV['RD_CONFIG_DOCKER_CERT_PEM_FILE'] ||
+      @config['docker']['cert.pem'] rescue nil
+    @key_pem = ENV['RD_CONFIG_DOCKER_KEY_PEM_FILE'] ||
+      @config['docker']['key.pem'] rescue nil
   end
 
   # TODO clean up. Too long and complex. Use extract method refactor.
@@ -132,7 +163,9 @@ class RundeckDocker < RundeckDockerPlugin
     before_run
     exit_code = 0
 
-    set_host
+    MemFs.activate!
+
+    setup_connection
     pull_image
 
     create_hash = {
@@ -146,7 +179,7 @@ class RundeckDocker < RundeckDockerPlugin
     end
 
     if secret_klass
-      secret_plugin = Object.const_get(secret_klass).new
+      secret_plugin = Object.const_get(secret_klass).new @config
       if secret_plugin.respond_to? :secrets_config
         create_hash.merge! secret_plugin.secrets_config
       end
@@ -206,15 +239,29 @@ class RundeckDocker < RundeckDockerPlugin
       pp json
     end
 
+    MemFs.deactivate!
+
     exit exit_code
+  end
+
+  def host_from_image
+    host = @image.split('/').first
+    host if host =~ /[a-z0-9]*(\.?[a-z0-9]+)\.[a-z]{2,5}(:[0-9]{1,5})?(\/.)?$/ix
   end
 
   def creds
     ret = {}
-    ret['username'] = ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] if
-      ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME']
-    ret['password'] = ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD'] if
-      ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD']
+
+    if username = (ENV['RD_CONFIG_DOCKER_REGISTRY_USERNAME'] ||
+                   @config['docker']['config.json']['auths'][host_from_image]['username'] rescue nil)
+      ret['username'] = username
+    end
+
+    if password = (ENV['RD_CONFIG_DOCKER_REGISTRY_PASSWORD'] ||
+                   @config['docker']['config.json']['auths'][host_from_image]['password'] rescue nil)
+      ret['password'] = password
+    end
+
     ret
   end
 
@@ -231,11 +278,29 @@ class RundeckDocker < RundeckDockerPlugin
       klass.before_run if klass.respond_to? :before_run
     end
   end
-  def set_host
+
+  def setup_connection
     @hostnames.shuffle.find do |hst|
       begin
         hst = "#{@protocol}://#{hst}#{@node_port}"
         Timeout.timeout 2 do
+          if @key_pem && @ca_pem && @cert_pem
+            {
+              'cert.pem' => @cert_pem,
+              'ca.pem' => @ca_pem,
+              'key.pem' => @key_pem,
+            }.each do |name, contents|
+              File.open(name, 'w') { |file| file.write contents }
+            end
+            Docker.options = {
+              client_cert: 'cert.pem',
+              client_key: 'key.pem',
+              ssl_ca_file: 'ca.pem',
+              ssl_verify_peer: false,
+              scheme: 'https'
+            }
+          end
+
           Docker.url = hst
           Docker.ping =~ /ok/i
         end

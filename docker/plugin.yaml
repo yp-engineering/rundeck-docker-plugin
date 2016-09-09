@@ -11,6 +11,15 @@ providers:
     plugin-type: script
     script-file: rundeck-docker-plugin
     config:
+      - name: docker_config_json
+        title: config.json File for this plugin
+        type: String
+        required: false
+        description: "Used to configure various private keys and such for talking to different nodes / clusters."
+        scope: Project
+        renderingOptions:
+          valueConversion: "STORAGE_PATH_AUTOMATIC_READ"
+          storage-path-root: "keys"
       - type: String
         name: docker_image
         title: Image
