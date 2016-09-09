@@ -66,7 +66,7 @@ for authentication to a protected docker daemon. The same is true for
 `cert.pem`, and `key.pem`. `config.json` will contain a hash of the exact
 contents of your ~/.docker/config.json as JSON, not as a string.
 
-The `mesos` has can have 2 different  keys of `principal` and `secret` which
+The `mesos` hash can have 2 different  keys of `principal` and `secret` which
 correspond to the same in mesos. See:
 http://mesos.apache.org/documentation/latest/authentication/ for details.
 
