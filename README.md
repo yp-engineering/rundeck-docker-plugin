@@ -40,6 +40,9 @@ To get this working you will need:
 
 # Rundeck project level settings
 
+DEPRECATED - Please use key storage for this data with a valid config.json
+explained by the [config-spec.json](config-spec.json.md).
+
 To configure your credentials for talking to a mesos that has authentication
 turned on set the following:
 
