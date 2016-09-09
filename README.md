@@ -30,6 +30,7 @@ To get this working you will need:
 - A rundeck server
 - Ruby version >= 2.0.x installed
 - Ruby gem 'docker-api' v ~> 1.28.0
+- Ruby gem 'memfs' v ~> 0.5.0
 - [mesos-runonce](https://github.com/yp-engineering/mesos-runonce) v1.0.4
   available in the rundeck server's $PATH
 - This plugin's .zip file either from the
