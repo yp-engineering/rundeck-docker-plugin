@@ -393,8 +393,8 @@ class RundeckDockerMesos < RundeckDockerPlugin
   end
 
   def mesos_creds
-    principal = ENV['RD_CONFIG_DOCKER_MESOS_PRINCIPAL']
-    secret = ENV['RD_CONFIG_DOCKER_MESOS_SECRET']
+    principal = ENV['RD_CONFIG_DOCKER_MESOS_PRINCIPAL'] || @config['mesos']['principal'] rescue nil
+    secret = ENV['RD_CONFIG_DOCKER_MESOS_SECRET'] || @config['mesos']['secret'] rescue nil
 
     if principal && !secret or !principal && secret
       raise RundeckDockerMesosPluginInvalidMesosCredConfig
