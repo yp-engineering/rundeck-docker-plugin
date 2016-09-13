@@ -296,8 +296,10 @@ class RundeckDocker < RundeckDockerPlugin
               client_cert: 'cert.pem',
               client_key: 'key.pem',
               ssl_ca_file: 'ca.pem',
-              ssl_verify_peer: false,
-              scheme: 'https'
+              # false == self-signed certs ; true == real certs
+              ssl_verify_peer: (@config['docker']['ssl_verify_peer'] || false rescue false),
+              private_key_pass: (@config['docker']['private_key_pass'] rescue nil),
+              scheme: 'https',
             }
           end
 

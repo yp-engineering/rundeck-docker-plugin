@@ -39,6 +39,8 @@ The following is an example of what the JSON spec is for version 1.0.0.
                         "password":"password"
                 },
                 "docker":{
+                        "ssl_verify_peer": false,
+                        "private_key_pass": "password_for_ssl_private_key",
                         "config.json":{
                                 "auths":{
                                         "hub.docker.com":{
@@ -65,6 +67,9 @@ The `docker` hash can have 4 different keys of `ca.pem`, `cert.pem`,
 for authentication to a protected docker daemon. The same is true for
 `cert.pem`, and `key.pem`. `config.json` will contain a hash of the exact
 contents of your ~/.docker/config.json as JSON, not as a string.
+`ssl_verify_peer` is a boolean where when true, will expect to be able to
+verify the cert else if false (self-signed) will not. `private_key_pass` is a
+string for if your key has a password on it. Both are optional.
 
 The `mesos` hash can have 2 different  keys of `principal` and `secret` which
 correspond to the same in mesos. See:
