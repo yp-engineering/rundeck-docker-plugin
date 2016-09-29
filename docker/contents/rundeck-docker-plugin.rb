@@ -180,7 +180,8 @@ class RundeckDocker < RundeckDockerPlugin
 
     if secret_klass
       secret_plugin = Object.const_get(secret_klass).new @config
-      if secret_plugin.respond_to? :secrets_config
+      if secret_plugin.respond_to? :secrets_config &&
+        ENV['RD_CONFIG_DOCKER_SECRET_STORE_RETRIEVAL']
         create_hash.merge! secret_plugin.secrets_config
       end
     end

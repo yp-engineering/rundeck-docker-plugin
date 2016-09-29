@@ -51,6 +51,10 @@ providers:
         name: docker_pull_image
         title: Pull image?
         description: 'Check if you would like to pull the image before running it.'
+      - type: Boolean
+        name: docker_secret_store_retrieval
+        title: Retrieve secrets?
+        description: 'Will trigger the secret storage retrieval mechanism.'
       - type: String
         name: docker_mesos_principal
         title: Principal
