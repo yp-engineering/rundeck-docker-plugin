@@ -203,26 +203,44 @@ class RundeckDocker < RundeckDockerPlugin
       follow: true,
     }
 
-    container.streaming_logs(attach_opts) do |stream, chunk|
-      # stream == :stdout || :stderr so objectify it and .puts to proper
-      # output
-      Object.const_get(stream.to_s.upcase).puts chunk
+    tries = 0
+    max = 30 # 30 * read_timeout on the Docker.options == ~30 minutes
+    begin
+      container.streaming_logs(attach_opts) do |stream, chunk|
+        # stream == :stdout || :stderr so objectify it and .puts to proper
+        # output
+        Object.const_get(stream.to_s.upcase).puts chunk
+      end
+    rescue Docker::Error::TimeoutError => err
+      tries = tries + 1
+      container.refresh!
+      status = container.json['State']['Status']
+      STDERR.puts "Received #{err.class} while attempting to fetch the logs from #{container.json['Name']}. Current container status: [#{status}]"
+      if status == 'running' && tries < max
+        STDERR.puts "Attempting to retry reading of the logs since the container is still 'running'. Attempt #{tries}/#{max}."
+        retry
+      else
+        raise err
+      end
     end
   rescue => err
     exit_code = 3
     STDERR.puts "#{err.class} - #{err.message}"
+    STDERR.puts caller if debug?
   ensure
     if secret_plugin.respond_to? :remove
-      puts 'Removing secrets plugin data...'
+      puts 'Attempting to remove secrets plugin data...'
       secret_plugin.remove
       puts 'Done removing secrets plugin data.'
     end
 
     if container
       json = container.refresh!.json
-      puts 'Removing container...'
-      container.remove
-      puts 'Done removing container.'
+      if json['State']['Status'] != 'running'
+        puts 'Attempting to remove container...'
+        container.remove
+        puts 'Done removing container.'
+      end
     end
 
     # We have json from the container and there wasn't an error already
